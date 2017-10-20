@@ -24,7 +24,6 @@ Spring项目集成了消息队列-RabbitMQ，考虑到数据安全和稳定性�
 
 * 核心框架：Spring Framework 4.3.8
 * 消息队列框架：spring-rabbit 1.6.1.RELEASE
-* 视图框架：Spring MVC 4.2.5
 * 日志管理：Log4j
 * 工具类：Apache Commons、Guava
 

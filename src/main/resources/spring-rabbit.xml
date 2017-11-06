@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:rabbit="http://www.springframework.org/schema/rabbit"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd  
+		http://www.springframework.org/schema/context   
+		http://www.springframework.org/schema/context/spring-context.xsd  
+		http://www.springframework.org/schema/rabbit http://www.springframework.org/schema/rabbit/spring-rabbit-1.6.xsd">
+
+	<!-- 官方文档 ： https://docs.spring.io/spring-amqp/docs/1.6.11.RELEASE/reference/html/_reference.html#delayed-message-exchange -->
+
+	<!-- 资源文件解析 -->
+	<context:property-placeholder location="classpath:rabbitmq.properties"
+		ignore-unresolvable="true" />
+
+	<!--配置connection-factory，指定连接rabbit server参数 -->
+	<rabbit:connection-factory id="rabbitConnectionFactory"
+		host="${rabbit.host}" port="${rabbit.port}" username="${rabbit.username}"
+		password="${rabbit.password}" channel-cache-size="${rabbit.channel.cache.size}"
+		virtual-host="${rabbit.vhost}" />
+
+	<!--通过指定下面的admin信息，当前producer中的exchange和queue会在rabbitmq服务器上自动生成 -->
+	<rabbit:admin id="connectAdmin" connection-factory="rabbitConnectionFactory" />
+
+	<!-- 消息转换器 -->
+	<bean id="jsonMessageConverter"
+		class="org.springframework.amqp.support.converter.Jackson2JsonMessageConverter" />
+
+	<!--start 定义消息队列 -->
+	<!-- 微信端消息通知 -->
+	<rabbit:queue name="wechat_msg_notify_queue" durable="true"
+		auto-delete="false" exclusive="false" declared-by="connectAdmin" />
+
+	<!-- 声明交换器与一个或多个普通消息队列的绑定 -->
+	<rabbit:direct-exchange name="normal-direct-exchange"
+		durable="true" auto-delete="false" declared-by="connectAdmin">
+		<rabbit:bindings>
+			<!-- 微信订单提醒队列绑定交换器 -->
+			<rabbit:binding queue="wechat_msg_notify_queue" key="${queue.wechat.notify.key}"></rabbit:binding>
+		</rabbit:bindings>
+	</rabbit:direct-exchange>
+
+	<!-- 普通消息接收者 -->
+	<bean id="normalMessageConsumer" class="com.geese.repair.mq.customer.NormalMessageConsumer"></bean>
+
+	<!-- 创建普通消息模板对象-rabbitTemplate -->
+	<rabbit:template id="rabbitTemplate"
+		connection-factory="rabbitConnectionFactory" exchange="normal-direct-exchange" />
+
+	<!--定义queue 配置延迟队列的信息 -->
+	<rabbit:queue name="delay_msg_notify_queue" durable="true"
+		auto-declare="true" auto-delete="false" declared-by="connectAdmin"></rabbit:queue>
+
+	<!-- 声明交换器与一个或多个延迟消息队列的绑定 -->
+	<rabbit:topic-exchange name="delay-topic-exchange"
+		declared-by="connectAdmin" delayed="true">
+		<rabbit:bindings>
+			<!-- 工单延迟提醒队列绑定交换器 -->
+			<rabbit:binding queue="delay_msg_notify_queue"
+				pattern="${queue.work.order.delay.notify.pattern}" />
+		</rabbit:bindings>
+	</rabbit:topic-exchange>
+
+	<!-- 延迟消息队列接收者 -->
+	<bean id="delayMessageConsumer" class="com.geese.repair.mq.customer.DelayMessageConsumer"></bean>
+
+	<!-- 创建延迟消息模板对象-rabbitTemplate -->
+	<rabbit:template id="rabbitTemplate2"
+		connection-factory="rabbitConnectionFactory" exchange="delay-topic-exchange" />
+
+	<!-- 任务线池 rabbitmq默认是SimpleAsyncTaskExecutor -->
+	<bean id="taskExecutor"
+		class="org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor">
+		<!-- 核心线程数，默认为1 -->
+		<property name="corePoolSize" value="2" />
+		<!-- 最大线程数，默认为Integer.MAX_VALUE -->
+		<property name="maxPoolSize" value="4" />
+		<!-- 队列最大长度，一般需要设置值>=notifyScheduledMainExecutor.maxNum；默认为Integer.MAX_VALUE -->
+		<property name="queueCapacity" value="10000" />
+		<!-- 线程池维护线程所允许的空闲时间，默认为60s -->
+		<property name="keepAliveSeconds" value="150" />
+		<!-- 线程池对拒绝任务（无线程可用）的处理策略，目前只支持AbortPolicy、CallerRunsPolicy；默认为后者 -->
+		<property name="rejectedExecutionHandler">
+			<!-- AbortPolicy:直接抛出java.util.concurrent.RejectedExecutionException异常 -->
+			<!-- CallerRunsPolicy:主线程直接执行该任务，执行完之后尝试添加下一个任务到线程池中，可以有效降低向线程池内添加任务的速度 -->
+			<!-- DiscardOldestPolicy:抛弃旧的任务、暂不支持；会导致被丢弃的任务无法再次被执行 -->
+			<!-- DiscardPolicy:抛弃当前任务、暂不支持；会导致被丢弃的任务无法再次被执行 -->
+			<bean class="java.util.concurrent.ThreadPoolExecutor$CallerRunsPolicy" />
+		</property>
+	</bean>
+
+	<!-- 配置异步MessageListener接口，观察监听模式 当有消息到达时会通知监听在对应的队列上的监听对象， consumer的业务逻辑会在onMessage中实现，多个队列用逗号隔开，消费者的ack方式为手动, 
+		关闭事务 -->
+	<rabbit:listener-container
+		connection-factory="rabbitConnectionFactory" acknowledge="manual"
+		channel-transacted="false" message-converter="jsonMessageConverter">
+		<rabbit:listener queues="wechat_msg_notify_queue" ref="normalMessageConsumer"
+			method="onMessage" />
+		<rabbit:listener queues="delay_msg_notify_queue" ref="delayMessageConsumer"
+			method="onMessage" />
+	</rabbit:listener-container>
+</beans>

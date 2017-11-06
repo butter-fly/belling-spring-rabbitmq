@@ -27,14 +27,14 @@
 			<artifactId>spring-core</artifactId>
 			<version>${spring.version}</version>
 		</dependency>
-		
+
 		<!-- RabbitMq -->
 		<dependency>
 			<groupId>org.springframework.amqp</groupId>
 			<artifactId>spring-rabbit</artifactId>
 			<version>1.6.1.RELEASE</version>
 		</dependency>
-		
+
 		<!-- commons -->
 		<dependency>
 			<groupId>commons-codec</groupId>
@@ -46,7 +46,7 @@
 			<artifactId>commons-io</artifactId>
 			<version>2.4</version>
 		</dependency>
-			<dependency>
+		<dependency>
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-collections4</artifactId>
 			<version>4.1</version>
@@ -56,7 +56,7 @@
 			<artifactId>commons-lang3</artifactId>
 			<version>3.4</version>
 		</dependency>
-		
+
 		<!-- fastJson -->
 		<dependency>
 			<groupId>com.alibaba</groupId>
@@ -92,8 +92,8 @@
 			<version>${logback.version}</version>
 		</dependency>
 		<!-- log end -->
-		
-		<!-- guava-->
+
+		<!-- guava -->
 		<dependency>
 			<groupId>com.google.guava</groupId>
 			<artifactId>guava</artifactId>
@@ -115,7 +115,7 @@
 			</plugin>
 		</plugins>
 	</build>
-	
+
 	<!-- 本地JAR 仓库 -->
 	<repositories>
 		<repository>
@@ -124,7 +124,7 @@
 			<url>http://192.168.2.104:8081/nexus/content/groups/public/</url>
 		</repository>
 	</repositories>
-	
+
 	<!-- 远程发布仓库地址 -->
 	<distributionManagement>
 		<repository>

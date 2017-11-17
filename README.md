@@ -1,6 +1,6 @@
-# belling-spring-rabbit
+# belling-spring-rabbitMQ
 
-# 百灵Spring集成Rabbit封装
+# 百灵Spring集成RabbitMQ封装
 
 ## 简介
 
